@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-int http_connect(const char* node) {
+static int http_info(const char* node, struct addrinfo** ai_list) {
     int rv;
 
     struct addrinfo hints;
@@ -16,10 +16,30 @@ int http_connect(const char* node) {
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
-    struct addrinfo* ai_list;
-    rv = getaddrinfo(node, "http", &hints, &ai_list);
+    // this is going to block for a good few seconds if node does not exist
+    // an artical online says that serious applications use libresolv
+    rv = getaddrinfo(node, "http", &hints, ai_list);
+    return rv;
+}
+
+bool http_server_exists(const char* node) {
+    struct addrinfo* ai_list = NULL;
+    int rv = http_info(node, &ai_list);
+    if (rv == EAI_NONAME) {
+        DebugMsg("%s is not known", node);
+    } else if (rv < 0) {
+        DebugError("http_connect", gai_strerror(rv));
+    }
+    return !rv;
+}
+
+int http_connect(const char* node) {
+    int rv;
+
+    struct addrinfo* ai_list = NULL;
+    rv = http_info(node, &ai_list);
     if (rv != 0) {
-        DebugError("http_connect::getaddrinfo", gai_strerror(rv));
+        DebugError("http_connect", gai_strerror(rv));
         return -1;
     }
 

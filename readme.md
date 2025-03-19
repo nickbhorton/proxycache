@@ -1,3 +1,15 @@
+# Design
+1. Proxy Cache (PC) `listen` for clients.
+2. A client makes a http request.
+3. PC connects to client with `accept`.
+4. PC spawns child to handle request.
+5. Child receives the request
+6. Request is parsed
+6. Child validates request method is GET
+    - If invalid sends client 400
+7. Child validates origin server
+    - If invalid sends client 404
+
 # API
 ```c
 int http_connect(

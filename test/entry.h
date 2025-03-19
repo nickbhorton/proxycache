@@ -5,5 +5,6 @@
 #include <CUnit/CUnit.h>
 
 void add_utils_tests();
+void add_string_view_tests();
 
 #endif
