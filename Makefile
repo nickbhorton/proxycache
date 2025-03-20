@@ -1,6 +1,6 @@
 CC=gcc
 
-CFLAGS=-Wall -Werror -Iinclude
+CFLAGS=-Wall -Werror -Iinclude -g3
 
 all: unit_tests
 
