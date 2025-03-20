@@ -176,6 +176,14 @@ void sv_get_words_http_request_3() {
     CU_ASSERT(strncmp(http_line_words[1].data, "http://www.example.com/", 23) == 0);
     CU_ASSERT(http_line_words[2].length == 8);
     CU_ASSERT(strncmp(http_line_words[2].data, "HTTP/1.1", 8) == 0);
+
+    StringView url_pass1[2];
+    rv = sv_split_n(url_pass1, 2, http_line_words[1].data, http_line_words[1].length, "://", true);
+    CU_ASSERT(rv == 2)
+    CU_ASSERT(url_pass1[0].length == 4);
+    CU_ASSERT(strncmp(url_pass1[0].data, "http", url_pass1[0].length) == 0);
+    CU_ASSERT(url_pass1[1].length == 16);
+    CU_ASSERT(strncmp(url_pass1[1].data, "www.example.com/", url_pass1[1].length) == 0);
 }
 
 void add_string_view_tests() {
