@@ -17,10 +17,12 @@ int sv_split_n(
         size_t sv_length = 0;
         // find first match
         while (!match_count) {
-            // if we are at the end of src, set last length and exit
+            // if we are at the end of src, exit
             if (src_ptr + split_length >= src + src_length) {
                 if (strncmp(src_ptr, split, split_length) != 0) {
                     dest[sv_i].length = sv_length + (src + src_length - src_ptr);
+                } else {
+                    dest[sv_i].length = sv_length;
                 }
                 return sv_i + 1;
             }
@@ -35,6 +37,11 @@ int sv_split_n(
         if (!exact_amount) {
             while (strncmp(src_ptr, split, split_length) == 0) {
                 src_ptr += split_length;
+                // if we are at the end of src, exit
+                if (src_ptr >= src + src_length) {
+                    dest[sv_i].length = sv_length;
+                    return sv_i + 1;
+                }
             }
         }
         dest[sv_i].length = sv_length;

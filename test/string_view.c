@@ -186,6 +186,72 @@ void sv_get_words_http_request_3() {
     CU_ASSERT(strncmp(url_pass1[1].data, "www.example.com/", url_pass1[1].length) == 0);
 }
 
+void sv_split_n_url_1() {
+    const char* url = "www.example.com/";
+    StringView url_pass[2];
+    int rv = sv_split_n(url_pass, 2, url, strlen(url), "/", true);
+    CU_ASSERT(rv == 1)
+    CU_ASSERT(url_pass[0].length == 15);
+    CU_ASSERT(strncmp(url_pass[0].data, "www.example.com", url_pass[0].length) == 0);
+}
+
+void sv_split_n_url_2() {
+    const char* url = "www.example.com";
+    StringView url_pass[2];
+    int rv = sv_split_n(url_pass, 2, url, strlen(url), "/", true);
+    CU_ASSERT(rv == 1)
+    CU_ASSERT(url_pass[0].length == 15);
+    CU_ASSERT(strncmp(url_pass[0].data, "www.example.com", url_pass[0].length) == 0);
+}
+
+void sv_split_n_url_3() {
+    const char* url = "www.example.com/index.html";
+    StringView url_pass[2];
+    int rv = sv_split_n(url_pass, 2, url, strlen(url), "/", true);
+    CU_ASSERT(rv == 2)
+    CU_ASSERT(url_pass[0].length == 15);
+    CU_ASSERT(strncmp(url_pass[0].data, "www.example.com", url_pass[0].length) == 0);
+    CU_ASSERT(url_pass[1].length == 10);
+    CU_ASSERT(strncmp(url_pass[1].data, "index.html", url_pass[1].length) == 0);
+}
+
+void sv_split_n_url_4() {
+    const char* url = "www.example.com:8888/index.html";
+    StringView url_pass1[2];
+    int rv = sv_split_n(url_pass1, 2, url, strlen(url), "/", true);
+    CU_ASSERT(rv == 2)
+    CU_ASSERT(url_pass1[0].length == 20);
+    CU_ASSERT(strncmp(url_pass1[0].data, "www.example.com:8888", url_pass1[0].length) == 0);
+    CU_ASSERT(url_pass1[1].length == 10);
+    CU_ASSERT(strncmp(url_pass1[1].data, "index.html", url_pass1[1].length) == 0);
+
+    StringView url_pass2[2];
+    rv = sv_split_n(url_pass2, 2, url_pass1[0].data, url_pass1[0].length, ":", true);
+    CU_ASSERT(rv == 2)
+    CU_ASSERT(url_pass2[0].length == 15);
+    CU_ASSERT(strncmp(url_pass2[0].data, "www.example.com", url_pass2[0].length) == 0);
+    CU_ASSERT(url_pass2[1].length == 4);
+    CU_ASSERT(strncmp(url_pass2[1].data, "8888", url_pass2[1].length) == 0);
+}
+
+void sv_split_n_url_5() {
+    // this is an edge case I worry about
+    // The behavior here I want is if we match exact case I want to know how many spaces we have
+    // for www.example.com/// -> ["www.example.com", "", ""]
+    const char* url = "www.example.com///";
+    StringView url_pass[4];
+    int rv = sv_split_n(url_pass, 4, url, strlen(url), "/", true);
+    CU_ASSERT(rv == 3);
+    CU_ASSERT(url_pass[0].length == 15);
+    CU_ASSERT(strncmp(url_pass[0].data, "www.example.com", url_pass[0].length) == 0);
+
+    // for not matching amount this should act line www.example.com/
+    rv = sv_split_n(url_pass, 4, url, strlen(url), "/", false);
+    CU_ASSERT(rv == 1);
+    CU_ASSERT(url_pass[0].length == 15);
+    CU_ASSERT(strncmp(url_pass[0].data, "www.example.com", url_pass[0].length) == 0);
+}
+
 void add_string_view_tests() {
     CU_pSuite suite = CU_add_suite("string_view", 0, 0);
     CU_add_test(suite, "sv_split_n with http top line (1/5)", sv_get_words_http_line_header_1);
@@ -196,4 +262,9 @@ void add_string_view_tests() {
     CU_add_test(suite, "sv_split_n with proxy http request (1/3)", sv_get_words_http_request_1);
     CU_add_test(suite, "sv_split_n with proxy http request (2/3)", sv_get_words_http_request_2);
     CU_add_test(suite, "sv_split_n with proxy http request (3/3)", sv_get_words_http_request_3);
+    CU_add_test(suite, "sv_split_n with url (1/5)", sv_split_n_url_1);
+    CU_add_test(suite, "sv_split_n with url (2/5)", sv_split_n_url_2);
+    CU_add_test(suite, "sv_split_n with url (3/5)", sv_split_n_url_3);
+    CU_add_test(suite, "sv_split_n with url (4/5)", sv_split_n_url_4);
+    CU_add_test(suite, "sv_split_n with url (5/5)", sv_split_n_url_5);
 }
