@@ -5,6 +5,7 @@ int main() {
     add_utils_tests();
     add_string_view_tests();
     add_url_tests();
+    add_http_tests();
     CU_basic_run_tests();
     CU_cleanup_registry();
 }

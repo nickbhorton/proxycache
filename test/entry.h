@@ -7,5 +7,6 @@
 void add_utils_tests();
 void add_string_view_tests();
 void add_url_tests();
+void add_http_tests();
 
 #endif
