@@ -52,15 +52,15 @@ static const StringView end_to_end_headers_sv[] = {
 };
 
 int to_proxy_request(
-    const char* client_request, size_t client_request_length, char proxy_request[HTTP_REQUEST_SIZE]
+    const char* client_request, size_t client_request_length, char proxy_request[HTTP_REQUEST_SIZE],
+    Url* url
 ) {
     HttpRequest parsed_request = {};
     int rv = parse_request(client_request, client_request_length, &parsed_request);
     if (rv != 0) {
         return rv;
     }
-    Url url = {};
-    rv = parse_url(parsed_request.url.data, parsed_request.url.length, &url);
+    rv = parse_url(parsed_request.url.data, parsed_request.url.length, url);
     if (rv < 0) {
         return 400;
     }
@@ -68,8 +68,8 @@ int to_proxy_request(
     char* write_ptr = proxy_request;
     memcpy(write_ptr, "GET /", 5);
     write_ptr += 5;
-    memcpy(write_ptr, url.path.data, url.path.length);
-    write_ptr += url.path.length;
+    memcpy(write_ptr, url->path.data, url->path.length);
+    write_ptr += url->path.length;
     memcpy(write_ptr, " HTTP/1.1\r\n", 11);
     write_ptr += 11;
 

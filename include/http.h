@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "string_view.h"
+#include "url.h"
 
 // still only support versions 1.0/1.1
 #define HTTP_VERSION_10 1
@@ -20,7 +21,8 @@ typedef struct {
 
 int parse_request(const char* src, size_t src_length, HttpRequest* dest);
 int to_proxy_request(
-    const char* client_request, size_t client_request_length, char proxy_request[HTTP_REQUEST_SIZE]
+    const char* client_request, size_t client_request_length, char proxy_request[HTTP_REQUEST_SIZE],
+    Url* url
 );
 
 #endif
