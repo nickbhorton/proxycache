@@ -29,4 +29,8 @@ int sv_split_n(
     bool exact_amount
 );
 
+void sv_strip(StringView* in_out);
+
+bool sv_cmp(StringView s1, StringView s2, bool match_case);
+
 #endif

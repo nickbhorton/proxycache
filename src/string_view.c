@@ -1,5 +1,7 @@
 #include "string_view.h"
 
+#include <ctype.h>
+#include <stdio.h>
 #include <string.h>
 
 int sv_split_n(
@@ -7,6 +9,9 @@ int sv_split_n(
     bool exact_amount
 ) {
     size_t split_length = strlen(split);
+    if (src_length < split_length) {
+        return 0;
+    }
     const char* src_ptr = src;
     int sv_i = 0;
     for (; sv_i < dest_count; sv_i++) {
@@ -47,4 +52,50 @@ int sv_split_n(
         dest[sv_i].length = sv_length;
     }
     return sv_i;
+}
+
+static int in(char c, const char* tests, size_t num_tests) {
+    for (size_t i = 0; i < num_tests; i++) {
+        if (c == tests[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void sv_strip(StringView* in_out) {
+    static const char* strip_chars = " \n\r";
+    size_t strip_chars_length = 3;
+
+    while (in_out->length != 0) {
+        if (in(*in_out->data, strip_chars, strip_chars_length)) {
+            in_out->data++;
+            in_out->length--;
+        } else {
+            break;
+        }
+    }
+    while (in_out->length != 0) {
+        if (in(*(in_out->data + in_out->length - 1), strip_chars, strip_chars_length)) {
+            in_out->length--;
+        } else {
+            break;
+        }
+    }
+}
+
+bool sv_cmp(const StringView s1, const StringView s2, bool match_case) {
+    if (s1.length != s2.length) {
+        return false;
+    }
+    if (match_case) {
+        return strncmp(s1.data, s2.data, s1.length) == 0;
+    } else {
+        for (size_t i = 0; i < s1.length; i++) {
+            if (tolower((int)s1.data[i]) != tolower((int)s2.data[i])) {
+                return false;
+            }
+        }
+    }
+    return true;
 }

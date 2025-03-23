@@ -252,8 +252,26 @@ void sv_split_n_url_5() {
     CU_ASSERT(strncmp(url_pass[0].data, "www.example.com", url_pass[0].length) == 0);
 }
 
+void sv_strip_tests() {
+    const char examples[][2][128] = {
+        {"   hello \r\n", "hello"},
+        {"  \r\r\r\n want to strip\n this  \r\n", "want to strip\n this"},
+        {"", ""},
+        {" ", ""},
+        {" t\n", "t"}
+    };
+    for (size_t i = 0; i < sizeof(examples) / sizeof(char[2][128]); i++) {
+        StringView example_q = {.data = examples[i][0], .length = strlen(examples[i][0])};
+        sv_strip(&example_q);
+        StringView example_a = {.data = examples[i][1], .length = strlen(examples[i][1])};
+        CU_ASSERT(example_q.length == example_a.length);
+        CU_ASSERT(strncmp(example_a.data, example_q.data, example_a.length) == 0);
+    }
+}
+
 void add_string_view_tests() {
     CU_pSuite suite = CU_add_suite("string_view", 0, 0);
+    // sv_split_n
     CU_add_test(suite, "sv_split_n with http top line (1/5)", sv_get_words_http_line_header_1);
     CU_add_test(suite, "sv_split_n with http top line (2/5)", sv_get_words_http_line_header_2);
     CU_add_test(suite, "sv_split_n with http top line (3/5)", sv_get_words_http_line_header_3);
@@ -267,4 +285,7 @@ void add_string_view_tests() {
     CU_add_test(suite, "sv_split_n with url (3/5)", sv_split_n_url_3);
     CU_add_test(suite, "sv_split_n with url (4/5)", sv_split_n_url_4);
     CU_add_test(suite, "sv_split_n with url (5/5)", sv_split_n_url_5);
+
+    // sv_strip
+    CU_add_test(suite, "sv_strip basic examples", sv_strip_tests);
 }
