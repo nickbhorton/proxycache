@@ -2,7 +2,7 @@ CC=gcc
 
 CFLAGS=-Wall -Werror -Iinclude -g3
 
-all: unit_tests
+all: pc unit_tests
 
 unit_tests: test_entry.o \
 	utils.o test_utils.o \
@@ -11,6 +11,12 @@ unit_tests: test_entry.o \
 	http.o test_http.o
 	$(CC) -o $@ $^ $(CFLAGS) -lcunit
 
+pc: proxy.o connection.o utils.o string_view.o url.o http.o
+	$(CC) -o $@ $^ $(CFLAGS)
+
+
+proxy.o: src/proxy.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 utils.o: src/utils.c include/utils.h
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -22,6 +28,9 @@ url.o: src/url.c include/url.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 http.o: src/http.c include/http.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+connection.o: src/connection.c include/connection.h include/address.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 

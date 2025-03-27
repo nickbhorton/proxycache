@@ -44,11 +44,14 @@ int parse_request(const char* src, size_t src_length, HttpRequest* dest) {
     return 0;
 }
 
-static const char end_to_end_headers[][256] = {"Accept", "Accept-Language", "Accept-Encoding"};
+static const char end_to_end_headers[][256] = {
+    "Accept", "Accept-Language", "Accept-Encoding", "Host"
+};
 static const StringView end_to_end_headers_sv[] = {
     {.data = end_to_end_headers[0], .length = 6},
     {.data = end_to_end_headers[1], .length = 15},
     {.data = end_to_end_headers[2], .length = 15},
+    {.data = end_to_end_headers[3], .length = 4},
 };
 
 int to_proxy_request(
@@ -58,11 +61,11 @@ int to_proxy_request(
     HttpRequest parsed_request = {};
     int rv = parse_request(client_request, client_request_length, &parsed_request);
     if (rv != 0) {
-        return rv;
+        return -rv;
     }
     rv = parse_url(parsed_request.url.data, parsed_request.url.length, url);
     if (rv < 0) {
-        return 400;
+        return -400;
     }
 
     char* write_ptr = proxy_request;
@@ -72,11 +75,6 @@ int to_proxy_request(
     write_ptr += url->path.length;
     memcpy(write_ptr, " HTTP/1.1\r\n", 11);
     write_ptr += 11;
-
-    // add proxy to origin specific headers
-    static const char* user_agent_header = "User-Agent: nbh_proxy_cache\r\n";
-    memcpy(write_ptr, user_agent_header, strlen(user_agent_header));
-    write_ptr += strlen(user_agent_header);
 
     static StringView sv_buffer[128];
     rv = sv_split_n(
@@ -106,8 +104,13 @@ int to_proxy_request(
         }
     }
 
+    // add proxy to origin specific headers
+    static const char* user_agent_header = "User-Agent: nbh_proxy_cache\r\n";
+    memcpy(write_ptr, user_agent_header, strlen(user_agent_header));
+    write_ptr += strlen(user_agent_header);
+
     // signify headers are done
     memcpy(write_ptr, "\r\n", 2);
     write_ptr += 2;
-    return 0;
+    return write_ptr - proxy_request;
 }

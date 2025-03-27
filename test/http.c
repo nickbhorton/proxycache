@@ -56,17 +56,18 @@ void to_proxy_request_http_firefox_1() {
         "<html>this is a request body!?</html>";
     const char* proxy_request =
         "GET / HTTP/1.1\r\n"
-        "User-Agent: nbh_proxy_cache\r\n"
+        "Host: www.example.com\r\n"
         "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"
         "Accept-Language: en-US,en;q=0.5\r\n"
         "Accept-Encoding: gzip, deflate\r\n"
+        "User-Agent: nbh_proxy_cache\r\n"
         "\r\n";
 
     char proxy_request_buffer[HTTP_REQUEST_SIZE] = {};
     Url url = {};
     int rv = to_proxy_request(client_request, strlen(client_request), proxy_request_buffer, &url);
-    CU_ASSERT_FATAL(rv == 0);
-    CU_ASSERT(strncmp(proxy_request, proxy_request_buffer, strlen(client_request)) == 0);
+    CU_ASSERT_FATAL(rv > 0);
+    CU_ASSERT(strncmp(proxy_request, proxy_request_buffer, strlen(proxy_request)) == 0);
 
     // validating the returned url
     CU_ASSERT(url.port == 80);
@@ -95,7 +96,7 @@ void to_proxy_request_http_firefox_2() {
     char proxy_request_buffer[HTTP_REQUEST_SIZE] = {};
     Url url = {};
     int rv = to_proxy_request(client_request, strlen(client_request), proxy_request_buffer, &url);
-    CU_ASSERT_FATAL(rv == 0);
+    CU_ASSERT_FATAL(rv > 0);
     CU_ASSERT(strncmp(proxy_request, proxy_request_buffer, strlen(client_request)) == 0);
 
     // validating the returned url

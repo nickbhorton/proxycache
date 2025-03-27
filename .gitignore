@@ -1,5 +1,6 @@
 *.o
 unit_tests
+pc
 
 .cache
 .clang-format
