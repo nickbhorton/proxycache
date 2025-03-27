@@ -31,7 +31,7 @@ bool http_server_exists(const char* node) {
     struct addrinfo* ai_list = NULL;
     int rv = http_address_info(node, &ai_list);
     if (rv == EAI_NONAME) {
-        DebugMsg("%s is not known", node);
+        DebugMsg("%s is not known\n", node);
     } else if (rv < 0) {
         DebugError("http_connect", gai_strerror(rv));
     }

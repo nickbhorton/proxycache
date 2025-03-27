@@ -28,9 +28,6 @@ void pc_sigint(int signal) {
 }
 
 int main() {
-    FailIsFatal(proxy_fd = tcp_connect(NULL, "8888", true));
-    FailIsFatal(listen(proxy_fd, 128));
-
     // Release control of children to prevent zombies
     signal(SIGCHLD, SIG_IGN);
 
@@ -40,15 +37,23 @@ int main() {
     sa.sa_handler = pc_sigint;
     FailIsFatal(sigaction(SIGINT, &sa, NULL));
 
+    FailIsFatal(proxy_fd = tcp_connect(NULL, "8888", true));
+    FailIsFatal(listen(proxy_fd, 128));
+
     while (1) {
         Connection client_connection = pc_accept(proxy_fd);
         if (client_connection.fd < 0) {
-            DebugPrint("pc_accept error, continuing");
+            DebugPrint("pc_accept error, continuing\n");
             continue;
         }
         if (!fork()) {
             close(proxy_fd);
             pc_handle_connection(&client_connection);
+            // shuting down connection
+            shutdown(client_connection.fd, 2);
+            exit(0);
+        } else {
+            close(client_connection.fd);
         }
     }
 }
