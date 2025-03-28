@@ -49,7 +49,7 @@ int main() {
         if (!fork()) {
             close(proxy_fd);
             pc_handle_connection(&client_connection);
-            // shuting down connection
+            // clean up connection
             shutdown(client_connection.fd, 2);
             exit(0);
         } else {
