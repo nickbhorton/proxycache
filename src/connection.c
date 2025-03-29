@@ -66,16 +66,7 @@ static void get_filename(const Url* url, char filename_o[39]) {
     );
 }
 
-int pc_get_file(const StringView proxy_request, const Url* url, size_t* file_size_o) {
-    char filename[39];
-    get_filename(url, filename);
-    int rv = open(filename, O_RDONLY);
-    if (rv > 0) {
-        printf("cache hit\n");
-        *file_size_o = get_filesize(filename);
-        return rv;
-    }
-
+static int get_file_from_origin(const StringView proxy_request, const Url* url, char filename[39]) {
     int connection_fd = tcp_connect(&url->domain, url->port, false);
     if (connection_fd < 0) {
         return -1;
@@ -97,7 +88,7 @@ int pc_get_file(const StringView proxy_request, const Url* url, size_t* file_siz
 
     // 1. break it down into http response and file
     StringView http_response_pass[2] = {};
-    rv = sv_split_n(http_response_pass, 2, rbuffer, bytes_recv, "\r\n\r\n", true);
+    int rv = sv_split_n(http_response_pass, 2, rbuffer, bytes_recv, "\r\n\r\n", true);
     // TODO: don't fail here pc_recv again
     if (rv != 2) {
         close(connection_fd);
@@ -105,7 +96,8 @@ int pc_get_file(const StringView proxy_request, const Url* url, size_t* file_siz
     }
     [[maybe_unused]] int http_response_size = http_response_pass[0].length + 4;
 
-    // 2. find content length in http response headers
+    // TODO 2. find content length and make sure we get whole file from origin server
+    /*
     StringView http_headers_pass[32] = {};
     rv = sv_split_n(
         http_headers_pass, 32, http_response_pass[0].data, http_response_pass[0].length, "\r\n",
@@ -113,6 +105,7 @@ int pc_get_file(const StringView proxy_request, const Url* url, size_t* file_siz
     );
     for (int i = 0; i < rv; i++) {
     }
+    */
 
     // 3. write file
     FILE* fptr;
@@ -134,8 +127,25 @@ int pc_get_file(const StringView proxy_request, const Url* url, size_t* file_siz
     fclose(fptr);
     close(connection_fd);
 
-    // get file descriptor of file to return
-    *file_size_o = bytes_recv;
+    return 0;
+}
+
+int pc_get_file(const StringView proxy_request, const Url* url, size_t* file_size_o) {
+    char filename[39];
+    get_filename(url, filename);
+
+    int rv = open(filename, O_RDONLY);
+    if (rv > 0) {
+        printf("cache hit\n");
+        *file_size_o = get_filesize(filename);
+        return rv;
+    }
+
+    rv = get_file_from_origin(proxy_request, url, filename);
+    if (rv < 0) {
+        return rv;
+    }
+    *file_size_o = get_filesize(filename);
     return open(filename, O_RDONLY);
 }
 
@@ -176,7 +186,7 @@ void pc_handle_connection(Connection* c) {
         return;
     }
 
-    // get file from origin server
+    // get file
     size_t file_size;
     int requested_file_fd = pc_get_file(proxy_request, &url, &file_size);
     if (requested_file_fd < 0) {
