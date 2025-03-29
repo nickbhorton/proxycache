@@ -37,7 +37,7 @@ int main() {
     sa.sa_handler = pc_sigint;
     FailIsFatal(sigaction(SIGINT, &sa, NULL));
 
-    FailIsFatal(proxy_fd = tcp_connect(NULL, "8888", true));
+    FailIsFatal(proxy_fd = tcp_connect(NULL, 8888, true));
     FailIsFatal(listen(proxy_fd, 128));
 
     while (1) {

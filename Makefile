@@ -11,7 +11,7 @@ unit_tests: test_entry.o \
 	http.o test_http.o
 	$(CC) -o $@ $^ $(CFLAGS) -lcunit
 
-pc: proxy.o connection.o utils.o string_view.o url.o http.o
+pc: proxy.o connection.o utils.o string_view.o url.o http.o md5.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 
@@ -19,6 +19,9 @@ proxy.o: src/proxy.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 utils.o: src/utils.c include/utils.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+md5.o: src/md5.c include/md5.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 string_view.o: src/string_view.c include/string_view.h

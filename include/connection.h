@@ -17,6 +17,6 @@ Connection pc_accept(int listening_socket);
 void pc_handle_connection(Connection* c);
 
 // returns a file descriptor of requested file
-int pc_get_file(const StringView proxy_request, const Url* url);
+int pc_get_file(const StringView proxy_request, const Url* url, size_t* file_size_o);
 
 #endif

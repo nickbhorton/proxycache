@@ -4,19 +4,28 @@
 #include <unistd.h>
 
 void happy_http_connect() {
-    int socket_fd = http_connect("www.example.com");
+    const char* domain_cstr = "www.example.com";
+    StringView domain = {.data = domain_cstr, .length = strlen(domain_cstr)};
+    int socket_fd = tcp_connect(&domain, 80, false);
     CU_ASSERT(socket_fd >= 0);
     close(socket_fd);
 
-    socket_fd = http_connect("socialstudieshelp.com");
+    domain_cstr = "socialstudieshelp.com";
+    domain.data = domain_cstr;
+    domain.length = strlen(domain_cstr);
+    socket_fd = tcp_connect(&domain, 80, false);
     CU_ASSERT(socket_fd >= 0);
     close(socket_fd);
 }
 
 void happy_http_server_exists() {
-    CU_ASSERT_TRUE(http_server_exists("www.example.com"));
-    CU_ASSERT_TRUE(http_server_exists("socialstudieshelp.com"));
-    // CU_ASSERT_FALSE(http_server_exists("jfdkkjfjfa32451jfsajfsj1432143"));
+    const char* domain_cstr = "www.example.com";
+    StringView domain = {.data = domain_cstr, .length = strlen(domain_cstr)};
+    CU_ASSERT_TRUE(tcp_server_exists(&domain, 80));
+    domain_cstr = "socialstudieshelp.com";
+    domain.data = domain_cstr;
+    domain.length = strlen(domain_cstr);
+    CU_ASSERT_TRUE(tcp_server_exists(&domain, 80));
 }
 
 void add_utils_tests() {

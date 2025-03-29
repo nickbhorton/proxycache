@@ -2,9 +2,11 @@
 #define PROXY_CACHE_UTILS_HEADER
 
 #include <stdbool.h>
+#include <stdint.h>
 
-int http_connect(const char* node);
-int tcp_connect(const char* node, const char* service, bool server);
-bool http_server_exists(const char* node);
+#include "string_view.h"
+
+int tcp_connect(const StringView* node, int16_t port, bool server);
+bool tcp_server_exists(const StringView* node, int16_t port);
 
 #endif

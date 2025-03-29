@@ -1,6 +1,7 @@
 #include "utils.h"
 #include "macros.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -23,24 +24,38 @@ static int tcp_address_info(const char* node, const char* service, struct addrin
     return rv;
 }
 
-static int http_address_info(const char* node, struct addrinfo** ai_list) {
-    return tcp_address_info(node, "http", ai_list);
-}
-
-bool http_server_exists(const char* node) {
+bool tcp_server_exists(const StringView* node, int16_t port) {
     struct addrinfo* ai_list = NULL;
-    int rv = http_address_info(node, &ai_list);
+
+    assert(node != NULL);
+
+    static char node_cstr[512];
+    snprintf(node_cstr, 512, "%.*s", (int)node->length, node->data);
+
+    static char port_cstr[128];
+    snprintf(port_cstr, 128, "%d", port);
+
+    int rv = tcp_address_info(node_cstr, port_cstr, &ai_list);
     if (rv == EAI_NONAME) {
-        DebugMsg("%s is not known\n", node);
+        DebugMsg("%s is not known\n", node_cstr);
     } else if (rv < 0) {
         DebugError("http_connect", gai_strerror(rv));
     }
     return !rv;
 }
 
-int tcp_connect(const char* node, const char* service, bool server) {
+int tcp_connect(const StringView* node, int16_t port, bool server) {
     struct addrinfo* ai_list = NULL;
-    int rv = tcp_address_info(node, service, &ai_list);
+
+    static char node_cstr[512];
+    if (node != NULL) {
+        snprintf(node_cstr, 512, "%.*s", (int)node->length, node->data);
+    }
+
+    static char port_cstr[128];
+    snprintf(port_cstr, 128, "%d", port);
+
+    int rv = tcp_address_info(node == NULL ? NULL : node_cstr, port_cstr, &ai_list);
     if (rv != 0) {
         DebugError("tcp_connect", gai_strerror(rv));
         return -1;
@@ -79,5 +94,3 @@ int tcp_connect(const char* node, const char* service, bool server) {
     freeaddrinfo(ai_list);
     return socket_fd;
 }
-
-int http_connect(const char* node) { return tcp_connect(node, "http", false); }
