@@ -56,7 +56,7 @@ test_entry.o: test/entry.c test/entry.h
 
 clean:
 	rm -rf *.o
-	rm -f unit_tests
+	rm -f unit_tests pc
 
 .PHONY: all clean
 
