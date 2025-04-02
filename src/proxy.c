@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 #include "connection.h"
-#include "utils.h"
+#include "tcp.h"
 
 #define FailIsFatal(call)                                                                          \
     if ((call) < 0) {                                                                              \
@@ -48,7 +48,10 @@ int main() {
         }
         if (!fork()) {
             close(proxy_fd);
-            pc_handle_connection(&client_connection);
+            int rv = pc_handle_connection(&client_connection);
+            if (rv != 0) {
+                printf("%d\n", rv);
+            }
             // clean up connection
             shutdown(client_connection.fd, 2);
             exit(0);

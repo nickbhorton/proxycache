@@ -6,3 +6,5 @@ pc
 cache
 .clang-format
 compile_commands.json
+
+test.data

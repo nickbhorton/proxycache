@@ -1,7 +1,6 @@
 #include "connection.h"
 #include "http.h"
 #include "md5.h"
-#include "utils.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -53,6 +52,15 @@ static ssize_t get_filesize(const char filename[39]) {
     return st.st_size;
 }
 
+void get_url_hash(const Url* url, uint8_t hash[16]) {
+    static char hash_buffer[512];
+    snprintf(
+        hash_buffer, 512, "%.*s/%.*s", (int)url->domain.length, url->domain.data,
+        (int)url->path.length, url->path.data
+    );
+    md5String(hash_buffer, hash);
+}
+
 static void get_filename(const Url* url, char filename_o[39]) {
     static char hash_buffer[512];
     static uint8_t file_hash[16];
@@ -70,98 +78,6 @@ static void get_filename(const Url* url, char filename_o[39]) {
     );
 }
 
-static int get_file_from_origin(const StringView proxy_request, const Url* url, char filename[39]) {
-    int connection_fd = tcp_connect(&url->domain, url->port, false);
-    if (connection_fd < 0) {
-        printf("could not connect to server\n");
-        return -1;
-    }
-
-    int bytes_sent = pc_send(connection_fd, proxy_request.data, proxy_request.length);
-    if (bytes_sent != (int)proxy_request.length) {
-        printf("did not send entire proxy request request\n");
-        close(connection_fd);
-        return -1;
-    }
-
-    char rbuffer[PC_BUFFER_SIZE];
-    int bytes_recv = pc_recv(connection_fd, rbuffer, PC_BUFFER_SIZE);
-    if (bytes_recv <= 0) {
-        printf("error with pc_recv\n");
-        close(connection_fd);
-        return -1;
-    }
-
-    // 1. break it down into http response and file
-    StringView http_response_pass[2] = {};
-    int rv = sv_split_n(http_response_pass, 2, rbuffer, bytes_recv, "\r\n\r\n", true);
-    // TODO: don't fail here pc_recv again
-    if (rv != 2) {
-        printf("response did not have a header file divider\n");
-        close(connection_fd);
-        return -1;
-    }
-    int cached_file_size = http_response_pass[0].length + 4;
-
-    // 2. find content length and make sure we get whole file from origin server
-    StringView http_headers_pass[32] = {};
-    int header_count = sv_split_n(
-        http_headers_pass, 32, http_response_pass[0].data, http_response_pass[0].length, "\r\n",
-        true
-    );
-    for (int i = 0; i < header_count; i++) {
-        StringView http_header[2] = {};
-        rv = sv_split_n(
-            http_header, 2, http_headers_pass[i].data, http_headers_pass[i].length, ":", true
-        );
-        if (rv < 2) {
-            continue;
-        }
-        const char* content_length_header = "Content-Length";
-        const StringView content_length_sc = {
-            .data = content_length_header, .length = strlen(content_length_header)
-        };
-        if (sv_cmp(http_header[0], content_length_sc, false)) {
-            sv_strip(&http_header[1]);
-            static char int_buffer[256];
-            memcpy(int_buffer, http_header[1].data, http_header[1].length);
-            int_buffer[http_header[1].length] = '\0';
-            cached_file_size += atoi(int_buffer);
-        }
-    }
-    printf("file_size: %d\n", cached_file_size);
-
-    // 3. write file
-    FILE* fptr;
-    fptr = fopen(filename, "wb");
-    if (fptr == NULL) {
-        perror("fopen");
-        close(connection_fd);
-        return -1;
-    }
-    size_t written = 0;
-    while (written < cached_file_size) {
-        size_t current_written = fwrite(rbuffer, sizeof(char), bytes_recv, fptr);
-        written += current_written;
-        bytes_recv = pc_recv(connection_fd, rbuffer, PC_BUFFER_SIZE);
-        if (bytes_recv <= 0) {
-            break;
-        }
-    }
-    if (written != cached_file_size) {
-        perror("fwrite");
-        close(connection_fd);
-        fclose(fptr);
-        return -1;
-    }
-
-    // clean up
-    fclose(fptr);
-    close(connection_fd);
-
-    return 0;
-}
-
 int pc_get_file(const StringView proxy_request, const Url* url, size_t* file_size_o) {
     char filename[39];
     get_filename(url, filename);
@@ -174,16 +90,10 @@ int pc_get_file(const StringView proxy_request, const Url* url, size_t* file_siz
         return rv;
     }
 
-    rv = get_file_from_origin(proxy_request, url, filename);
-    if (rv < 0) {
-        return rv;
-    }
-    *file_size_o = get_filesize(filename);
-    return open(filename, O_RDONLY);
+    return -1;
 }
 
-void pc_handle_connection(Connection* c) {
-    /*
+int pc_handle_connection(Connection* c) {
     // printing the address of connection, remove eventually
     char addr_string[128] = {};
     inet_ntop(
@@ -191,15 +101,15 @@ void pc_handle_connection(Connection* c) {
         (struct sockaddr*)&(((struct sockaddr_in*)&c->address.address)->sin_addr), addr_string,
         sizeof(addr_string)
     );
-    printf("%d: client connection %s\n", getpid(), addr_string);
-    */
+    printf("client at %s\n", addr_string);
 
     // getting client request
     char rbuffer[PC_BUFFER_SIZE];
     char sbuffer[PC_BUFFER_SIZE];
     int bytes_recv = 0;
     if ((bytes_recv = pc_recv(c->fd, rbuffer, PC_BUFFER_SIZE)) <= 0) {
-        return;
+        // recv error or timed out
+        return -1;
     }
 
     // validate the client request can be transmuted to proxy request
@@ -209,30 +119,27 @@ void pc_handle_connection(Connection* c) {
     if (proxy_request_length < 0) {
         const char* msg = "HTTP/1.1 400 Bad Request\r\n\r\n";
         send(c->fd, msg, strlen(msg), 0);
-        return;
+        // proxy request transmutation has error
+        return -2;
     }
     proxy_request.length = (size_t)proxy_request_length;
     proxy_request.data = sbuffer;
-
-    // validate that the origin server in request exists
-    if (!tcp_server_exists(&url.domain, url.port)) {
-        const char* msg = "HTTP/1.1 404 Not Found\r\n\r\n";
-        send(c->fd, msg, strlen(msg), 0);
-        return;
-    }
 
     // get file
     size_t file_size;
     int requested_file_fd = pc_get_file(proxy_request, &url, &file_size);
     if (requested_file_fd < 0) {
-        perror("pc_get_file");
-        return;
+        // pc_get_file error
+        return -3;
     }
 
     // send file to client
     ssize_t bytes_sent = sendfile(c->fd, requested_file_fd, 0, file_size);
-    assert(bytes_sent == file_size);
-    return;
+    if (bytes_sent != file_size) {
+        // did not send enough bytes to client
+        return -4;
+    }
+    return 0;
 }
 
 Connection pc_accept(int sockfd) {

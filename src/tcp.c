@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "tcp.h"
 #include "macros.h"
 
 #include <assert.h>
@@ -22,26 +22,6 @@ static int tcp_address_info(const char* node, const char* service, struct addrin
     // an artical online says that serious applications use libresolv
     int rv = getaddrinfo(node, service, &hints, ai_list);
     return rv;
-}
-
-bool tcp_server_exists(const StringView* node, int16_t port) {
-    struct addrinfo* ai_list = NULL;
-
-    assert(node != NULL);
-
-    static char node_cstr[512];
-    snprintf(node_cstr, 512, "%.*s", (int)node->length, node->data);
-
-    static char port_cstr[128];
-    snprintf(port_cstr, 128, "%d", port);
-
-    int rv = tcp_address_info(node_cstr, port_cstr, &ai_list);
-    if (rv == EAI_NONAME) {
-        DebugMsg("%s is not known\n", node_cstr);
-    } else if (rv < 0) {
-        DebugError("http_connect", gai_strerror(rv));
-    }
-    return !rv;
 }
 
 int tcp_connect(const StringView* node, int16_t port, bool server) {
