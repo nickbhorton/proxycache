@@ -40,6 +40,7 @@ int main() {
     FailIsFatal(proxy_fd = tcp_connect(NULL, 8888, true));
     FailIsFatal(listen(proxy_fd, 128));
 
+    // handle connections loop
     while (1) {
         Connection client_connection = pc_accept(proxy_fd);
         if (client_connection.fd < 0) {
