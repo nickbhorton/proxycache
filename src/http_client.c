@@ -7,11 +7,15 @@
 #include <string.h>
 #include <sys/file.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "connection.h"
 #include "string_view.h"
 #include "tcp.h"
+
+#define CACHE_LIFETIME 10.0
 
 int cl_get_atomic(const StringView request, const Url* url, const StringView filename) {
     static char filename_buffer[256];
@@ -19,9 +23,11 @@ int cl_get_atomic(const StringView request, const Url* url, const StringView fil
     filename_buffer[filename.length] = '\0';
 
     // try to exclusivly create the file
-    int fd = open(filename_buffer, O_CREAT | O_EXCL | O_WRONLY, S_IRWXU);
+    int fd;
+create_file:
+    fd = open(filename_buffer, O_CREAT | O_EXCL | O_WRONLY, S_IRWXU);
     if (fd > 0) {
-        // write locked
+        // lock
         int rv = flock(fd, LOCK_EX);
         if (rv < 0) {
             // write locked failed
@@ -29,7 +35,7 @@ int cl_get_atomic(const StringView request, const Url* url, const StringView fil
             if (remove(filename_buffer) < 0) {
                 perror("remove");
             }
-            return -10;
+            return -20;
         }
         // get file from origin
         rv = cl_get(request, url, fd);
@@ -40,7 +46,7 @@ int cl_get_atomic(const StringView request, const Url* url, const StringView fil
             }
             return rv;
         }
-        // unlocked
+        // unlock
         rv = flock(fd, LOCK_UN);
         if (rv < 0) {
             // unlocked failed
@@ -48,25 +54,48 @@ int cl_get_atomic(const StringView request, const Url* url, const StringView fil
             if (remove(filename_buffer) < 0) {
                 perror("remove");
             }
-            return -11;
+            return -21;
         }
         close(fd);
     } else if (errno != EEXIST) {
-        return -12;
+        return -22;
     }
 
+    //
+    // check file age, remove and recreate if old
+    //
+    struct stat st = {};
+    int rv = stat(filename_buffer, &st);
+    if (rv < 0) {
+        perror("stat");
+        return -23;
+    }
+    time_t t_now = time(NULL);
+    double file_age_seconds = difftime(t_now, st.st_mtime);
+    if (CACHE_LIFETIME < file_age_seconds) {
+        if (remove(filename_buffer) < 0) {
+            perror("remove");
+            return -24;
+        }
+        goto create_file;
+    }
+
+    //
+    // open the file in read mode to return
+    //
     fd = open(filename_buffer, O_RDONLY);
     if (fd < 0) {
-        return -13;
+        return -25;
     }
+
     // block if another proccess has a lock
     if (flock(fd, LOCK_SH) < 0) {
         close(fd);
-        return -14;
+        return -26;
     }
     if (flock(fd, LOCK_UN) < 0) {
         close(fd);
-        return -15;
+        return -27;
     }
 
     // if the process in charge of getting the file fails then remove is called. If remove is called
