@@ -25,18 +25,29 @@ int cl_get_atomic(const StringView request, const Url* url, const StringView fil
         int rv = flock(fd, LOCK_EX);
         if (rv < 0) {
             // write locked failed
+            close(fd);
+            if (remove(filename_buffer) < 0) {
+                perror("remove");
+            }
             return -10;
         }
+        // get file from origin
         rv = cl_get(request, url, fd);
         if (rv < 0) {
-            // TODO check error
-            remove(filename_buffer);
+            close(fd);
+            if (remove(filename_buffer) < 0) {
+                perror("remove");
+            }
             return rv;
         }
         // unlocked
         rv = flock(fd, LOCK_UN);
         if (rv < 0) {
             // unlocked failed
+            close(fd);
+            if (remove(filename_buffer) < 0) {
+                perror("remove");
+            }
             return -11;
         }
         close(fd);
@@ -44,31 +55,57 @@ int cl_get_atomic(const StringView request, const Url* url, const StringView fil
         return -12;
     }
 
-    fd = open(filename_buffer, O_RDONLY, S_IRWXU);
+    fd = open(filename_buffer, O_RDONLY);
+    if (fd < 0) {
+        return -13;
+    }
     // block if another proccess has a lock
     if (flock(fd, LOCK_SH) < 0) {
-        return -13;
+        close(fd);
+        return -14;
     }
     if (flock(fd, LOCK_UN) < 0) {
-        return -13;
+        close(fd);
+        return -15;
     }
+
+    // if the process in charge of getting the file fails then remove is called. If remove is called
+    // then the fd in non responsible threads is potentially open still. To check this we can check
+    // size and if zero then fail. It would also be possible that we integrate headers into the
+    // files so a fail can be indicated to non responsible process via the file
     return fd;
 }
 
+const char* err_msg_404 = "404 Not Found\r\n\r\n";
+const char* err_msg_500 = "500 Internal Server Error\r\n\r\n";
+
+// TODO fix this function. it is so long and bad
 int cl_get(const StringView request, const Url* url, int fd_to_write) {
+    ssize_t bytes_written = 0;
+    //
+    // establish a connection to the origin and send request
+    //
     int origin_sock = tcp_connect(&url->domain, url->port, false);
     if (origin_sock < 0) {
-        // could not connect to server
-        return -1;
+        // 404 -> could not connect to server
+        bytes_written = write(fd_to_write, err_msg_404, strlen(err_msg_404));
+        if (bytes_written != strlen(err_msg_404)) {
+            return -1;
+        }
+        return 0;
     }
 
     int bytes_sent = 0;
     while (bytes_sent < request.length) {
         int rv = send(origin_sock, request.data, request.length, 0);
         if (rv < 0) {
-            // send failed
             shutdown(origin_sock, 2);
-            return -2;
+            // 500 -> send failed
+            bytes_written = write(fd_to_write, err_msg_500, strlen(err_msg_500));
+            if (bytes_written != strlen(err_msg_500)) {
+                return -2;
+            }
+            return 0;
         }
         bytes_sent += rv;
     }
@@ -76,36 +113,70 @@ int cl_get(const StringView request, const Url* url, int fd_to_write) {
     static char recv_buffer[PC_BUFFER_SIZE];
     int bytes_recv = recv(origin_sock, recv_buffer, PC_BUFFER_SIZE, 0);
     if (bytes_recv < 0) {
-        // recv failed
         shutdown(origin_sock, 2);
-        return -3;
-    }
-
-    StringView header_body_pass[2];
-    int word_count = sv_split_n(header_body_pass, 2, recv_buffer, bytes_recv, "\r\n\r\n", true);
-    if (word_count < 1) {
-        // did not recv enough from server to find header body split point
-        shutdown(origin_sock, 2);
-        return -4;
-    }
-
-    ssize_t bytes_written = 0;
-    if (word_count == 2) {
-        bytes_written = write(fd_to_write, header_body_pass[1].data, header_body_pass[1].length);
-        if (bytes_written != header_body_pass[1].length) {
-            // did not write all file bytes from first recv
-            shutdown(origin_sock, 2);
-            return -6;
+        // 500 -> recv failed
+        bytes_written = write(fd_to_write, err_msg_500, strlen(err_msg_500));
+        if (bytes_written != strlen(err_msg_500)) {
+            return -3;
         }
+        return 0;
     }
 
-    // find content length and make sure we get whole file from origin server
-    size_t content_length = 0;
+    //
+    // parse origin response
+    //
+    StringView header_body_pass[2];
+    int header_body_wc = sv_split_n(header_body_pass, 2, recv_buffer, bytes_recv, "\r\n\r\n", true);
+    if (header_body_wc < 1) {
+        shutdown(origin_sock, 2);
+        // 500 -> did not recv enough from server to find header body split point
+        bytes_written = write(fd_to_write, err_msg_500, strlen(err_msg_500));
+        if (bytes_written != strlen(err_msg_500)) {
+            return -4;
+        }
+        return 0;
+    }
 
     StringView http_headers_pass[64] = {};
     int header_count = sv_split_n(
         http_headers_pass, 64, header_body_pass[0].data, header_body_pass[0].length, "\r\n", true
     );
+    if (header_count < 1) {
+        shutdown(origin_sock, 2);
+        // 500 -> origin gave a very strange response
+        bytes_written = write(fd_to_write, err_msg_500, strlen(err_msg_500));
+        if (bytes_written != strlen(err_msg_500)) {
+            return -5;
+        }
+        return 0;
+    }
+
+    //
+    // write file
+    //
+    // write top line to file
+    bytes_written = write(fd_to_write, http_headers_pass[0].data, http_headers_pass[0].length);
+    if (bytes_written != http_headers_pass[0].length) {
+        shutdown(origin_sock, 2);
+        return -6;
+    }
+    size_t cur_bytes_written = write(fd_to_write, "\r\n", 2);
+    if (cur_bytes_written != 2) {
+        shutdown(origin_sock, 2);
+        return -7;
+    }
+    bytes_written += cur_bytes_written;
+
+    // write end to end headers to file
+    const char* content_length_header = "Content-Length";
+    const char* content_type_header = "Content-Type";
+    const StringView content_length_sc = {
+        .data = content_length_header, .length = strlen(content_length_header)
+    };
+    const StringView content_type_sc = {
+        .data = content_type_header, .length = strlen(content_type_header)
+    };
+    int content_length = 0;
     for (int i = 0; i < header_count; i++) {
         StringView http_header[2] = {};
         int wc = sv_split_n(
@@ -114,12 +185,28 @@ int cl_get(const StringView request, const Url* url, int fd_to_write) {
         if (wc < 2) {
             continue;
         }
-        const char* content_length_header = "Content-Length";
-        const StringView content_length_sc = {
-            .data = content_length_header, .length = strlen(content_length_header)
-        };
 
-        if (sv_cmp(http_header[0], content_length_sc, false)) {
+        bool is_content_length = false;
+        if ((is_content_length = sv_cmp(http_header[0], content_length_sc, false)) ||
+            sv_cmp(http_header[0], content_type_sc, false)) {
+            cur_bytes_written =
+                write(fd_to_write, http_headers_pass[i].data, http_headers_pass[i].length);
+            if (cur_bytes_written != http_headers_pass[i].length) {
+                shutdown(origin_sock, 2);
+                return -8;
+            }
+            bytes_written += cur_bytes_written;
+
+            cur_bytes_written = write(fd_to_write, "\r\n", 2);
+            if (cur_bytes_written != 2) {
+                shutdown(origin_sock, 2);
+                return -9;
+            }
+            bytes_written += cur_bytes_written;
+        }
+
+        // get content length as int
+        if (is_content_length) {
             sv_strip(&http_header[1]);
             static char int_buffer[256];
             memcpy(int_buffer, http_header[1].data, http_header[1].length);
@@ -127,26 +214,45 @@ int cl_get(const StringView request, const Url* url, int fd_to_write) {
             content_length = atoi(int_buffer);
         }
     }
-    if (content_length == 0) {
-        // content length was not found in response
+
+    // indicate to reader we are finished with headers
+    cur_bytes_written = write(fd_to_write, "\r\n", 2);
+    if (cur_bytes_written != 2) {
         shutdown(origin_sock, 2);
-        return -7;
+        return -10;
+    }
+    bytes_written += cur_bytes_written;
+
+    //
+    // write file from origin
+    //
+    int file_bytes_written = 0;
+    // write body from first call to recv
+    if (header_body_wc == 2) {
+        int cur_file_bytes_written =
+            write(fd_to_write, header_body_pass[1].data, header_body_pass[1].length);
+        if (cur_file_bytes_written != header_body_pass[1].length) {
+            // did not write all file bytes from first recv
+            shutdown(origin_sock, 2);
+            return -11;
+        }
+        file_bytes_written += cur_file_bytes_written;
     }
 
-    while (bytes_written < content_length) {
+    while (file_bytes_written < content_length) {
         bytes_recv = recv(origin_sock, recv_buffer, PC_BUFFER_SIZE, 0);
         if (bytes_recv < 0) {
             // recv failed for rest of file
             shutdown(origin_sock, 2);
-            return -8;
+            return -12;
         }
-        ssize_t bytes_written_cur = write(fd_to_write, recv_buffer, bytes_recv);
-        if (bytes_written_cur != bytes_recv) {
+        int cur_file_bytes_written = write(fd_to_write, recv_buffer, bytes_recv);
+        if (cur_file_bytes_written != bytes_recv) {
             // did not write all bytes from rest of file
             shutdown(origin_sock, 2);
-            return -9;
+            return -13;
         }
-        bytes_written += bytes_written_cur;
+        file_bytes_written += cur_file_bytes_written;
     }
 
     shutdown(origin_sock, 2);
