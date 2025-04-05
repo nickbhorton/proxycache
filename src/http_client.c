@@ -200,11 +200,15 @@ int cl_get(const StringView request, const Url* url, int fd_to_write) {
     // write end to end headers to file
     const char* content_length_header = "Content-Length";
     const char* content_type_header = "Content-Type";
+    const char* content_encoding_header = "Content-Encoding";
     const StringView content_length_sc = {
         .data = content_length_header, .length = strlen(content_length_header)
     };
     const StringView content_type_sc = {
         .data = content_type_header, .length = strlen(content_type_header)
+    };
+    const StringView content_encoding_sc = {
+        .data = content_encoding_header, .length = strlen(content_encoding_header)
     };
     int content_length = 0;
     for (int i = 0; i < header_count; i++) {
@@ -218,7 +222,8 @@ int cl_get(const StringView request, const Url* url, int fd_to_write) {
 
         bool is_content_length = false;
         if ((is_content_length = sv_cmp(http_header[0], content_length_sc, false)) ||
-            sv_cmp(http_header[0], content_type_sc, false)) {
+            sv_cmp(http_header[0], content_type_sc, false) ||
+            sv_cmp(http_header[0], content_encoding_sc, false)) {
             cur_bytes_written =
                 write(fd_to_write, http_headers_pass[i].data, http_headers_pass[i].length);
             if (cur_bytes_written != http_headers_pass[i].length) {
