@@ -1,5 +1,6 @@
 #include "connection.h"
 #include "http.h"
+#include "http_client.h"
 #include "md5.h"
 
 #include <assert.h>
@@ -13,10 +14,6 @@
 #include <sys/sendfile.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-// for inet_ntop
-#include <arpa/inet.h>
-#include <netinet/in.h>
 
 int pc_recv(int fd, char* recv_buffer, size_t buffer_size) {
     static struct pollfd pfd[1];
@@ -78,31 +75,7 @@ static void get_filename(const Url* url, char filename_o[39]) {
     );
 }
 
-int pc_get_file(const StringView proxy_request, const Url* url, size_t* file_size_o) {
-    char filename[39];
-    get_filename(url, filename);
-
-    // try to open file if its in cache
-    int rv = open(filename, O_RDONLY);
-    if (rv > 0) {
-        printf("cache hit\n");
-        *file_size_o = get_filesize(filename);
-        return rv;
-    }
-
-    return -1;
-}
-
 int pc_handle_connection(Connection* c) {
-    // printing the address of connection, remove eventually
-    char addr_string[128] = {};
-    inet_ntop(
-        c->address.address.ss_family,
-        (struct sockaddr*)&(((struct sockaddr_in*)&c->address.address)->sin_addr), addr_string,
-        sizeof(addr_string)
-    );
-    printf("client at %s\n", addr_string);
-
     // getting client request
     char rbuffer[PC_BUFFER_SIZE];
     char sbuffer[PC_BUFFER_SIZE];
@@ -126,18 +99,23 @@ int pc_handle_connection(Connection* c) {
     proxy_request.data = sbuffer;
 
     // get file
-    size_t file_size;
-    int requested_file_fd = pc_get_file(proxy_request, &url, &file_size);
+    char filename[39];
+    get_filename(&url, filename);
+    StringView filename_sv = {.data = filename, .length = 38};
+    int requested_file_fd = cl_get_atomic(proxy_request, &url, filename_sv);
     if (requested_file_fd < 0) {
-        // pc_get_file error
         return -3;
     }
+    ssize_t file_size = get_filesize(filename);
+    if (file_size <= 0) {
+        return -4;
+    }
 
-    // send file to client
+    // send file (header is at top of file) to client
     ssize_t bytes_sent = sendfile(c->fd, requested_file_fd, 0, file_size);
     if (bytes_sent != file_size) {
         // did not send enough bytes to client
-        return -4;
+        return -5;
     }
     return 0;
 }

@@ -12,7 +12,7 @@ unit_tests: test_entry.o \
 	http_client.o test_http_client.o
 	$(CC) -o $@ $^ $(CFLAGS) -lcunit
 
-pc: proxy.o connection.o tcp.o string_view.o url.o http.o md5.o
+pc: proxy.o connection.o tcp.o string_view.o url.o http.o md5.o http_client.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 

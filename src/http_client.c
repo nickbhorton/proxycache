@@ -59,6 +59,8 @@ create_file:
         close(fd);
     } else if (errno != EEXIST) {
         return -22;
+    } else {
+        printf("%s cache hit\n", filename_buffer);
     }
 
     //
@@ -73,6 +75,7 @@ create_file:
     time_t t_now = time(NULL);
     double file_age_seconds = difftime(t_now, st.st_mtime);
     if (CACHE_LIFETIME < file_age_seconds) {
+        printf("%s is old\n", filename_buffer);
         if (remove(filename_buffer) < 0) {
             perror("remove");
             return -24;
@@ -98,15 +101,13 @@ create_file:
         return -27;
     }
 
-    // if the process in charge of getting the file fails then remove is called. If remove is called
-    // then the fd in non responsible threads is potentially open still. To check this we can check
-    // size and if zero then fail. It would also be possible that we integrate headers into the
-    // files so a fail can be indicated to non responsible process via the file
+    // TODO if for some reason there is a critical error in the proccess that is required to get the
+    // file from origin then we are still cooked
     return fd;
 }
 
-const char* err_msg_404 = "404 Not Found\r\n\r\n";
-const char* err_msg_500 = "500 Internal Server Error\r\n\r\n";
+const char* err_msg_404 = "HTTP/1.1 404 Not Found\r\n\r\n";
+const char* err_msg_500 = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
 
 // TODO fix this function. it is so long and bad
 int cl_get(const StringView request, const Url* url, int fd_to_write) {
