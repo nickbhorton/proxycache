@@ -12,7 +12,7 @@ unit_tests: test_entry.o \
 	http_client.o test_http_client.o
 	$(CC) -o $@ $^ $(CFLAGS) -lcunit
 
-pc: proxy.o connection.o tcp.o string_view.o url.o http.o md5.o http_client.o
+pc: proxy.o connection.o tcp.o string_view.o url.o http.o md5.o http_client.o filename.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 
@@ -34,7 +34,10 @@ url.o: src/url.c include/url.h
 http_client.o: src/http_client.c include/http_client.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-http.o: src/http.c include/http.h
+request.o: src/request.c include/request.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+filename.o: src/filename.c include/filename.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 connection.o: src/connection.c include/connection.h include/address.h
@@ -53,7 +56,7 @@ test_string_view.o: test/string_view.c test/entry.h
 test_url.o: test/url.c test/entry.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-test_http.o: test/http.c test/entry.h
+test_request.o: test/request.c test/entry.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 
