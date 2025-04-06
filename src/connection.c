@@ -76,6 +76,12 @@ int pc_handle_connection(Connection* c) {
         // did not send enough bytes to client
         return -5;
     }
+
+    // if the content is dynamic remove it from cache after it is sent
+    if (url.parameters_anchor.length > 0) {
+        remove(filename);
+    }
+
     return 0;
 }
 

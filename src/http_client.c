@@ -112,6 +112,8 @@ create_file:
 }
 
 const char* err_msg_404 = "HTTP/1.1 404 Not Found\r\n\r\n";
+const char* err_msg_403 = "HTTP/1.1 403 Forbidden\r\n\r\n<!DOCTYPE html><body><h1>NOPE NOT TODAY "
+                          "(403 Forbidden)</h1></body></html>";
 const char* err_msg_500 = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
 
 // TODO fix this function. it is so long and bad
@@ -121,10 +123,18 @@ int cl_get(const StringView request, const Url* url, int fd_to_write) {
     // establish a connection to the origin and send request
     //
     int origin_sock = tcp_connect(&url->domain, url->port, false);
-    if (origin_sock < 0) {
+    if (origin_sock == -1) {
         // 404 -> could not connect to server
         bytes_written = write(fd_to_write, err_msg_404, strlen(err_msg_404));
         if (bytes_written != strlen(err_msg_404)) {
+            return -1;
+        }
+        return 0;
+    }
+    if (origin_sock == -2) {
+        // 403 -> ip or domain was blocked
+        bytes_written = write(fd_to_write, err_msg_403, strlen(err_msg_403));
+        if (bytes_written != strlen(err_msg_403)) {
             return -1;
         }
         return 0;
