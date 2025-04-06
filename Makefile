@@ -8,11 +8,11 @@ unit_tests: test_entry.o \
 	tcp.o test_tcp.o \
 	string_view.o test_string_view.o \
 	url.o test_url.o \
-	http.o test_http.o \
+	request.o test_request.o \
 	http_client.o test_http_client.o
 	$(CC) -o $@ $^ $(CFLAGS) -lcunit
 
-pc: proxy.o connection.o tcp.o string_view.o url.o http.o md5.o http_client.o filename.o
+pc: proxy.o connection.o tcp.o string_view.o url.o request.o md5.o http_client.o filename.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 
