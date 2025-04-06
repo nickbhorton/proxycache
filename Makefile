@@ -67,6 +67,9 @@ test_entry.o: test/entry.c test/entry.h
 clean:
 	rm -rf *.o
 	rm -f unit_tests pc
+	rm -f cache/*
+	rm test.txt
+	rm test.data
 
 .PHONY: all clean
 

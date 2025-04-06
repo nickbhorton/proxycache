@@ -57,6 +57,11 @@ create_file:
             return -21;
         }
         close(fd);
+
+        printf(
+            "%.*s/%.*s -> %s\n", (int)url->domain.length, url->domain.data, (int)url->path.length,
+            url->path.data, filename_buffer
+        );
     } else if (errno != EEXIST) {
         return -22;
     } else {
@@ -139,7 +144,6 @@ int cl_get(const StringView request, const Url* url, int fd_to_write) {
         }
         bytes_sent += rv;
     }
-
     static char recv_buffer[PC_BUFFER_SIZE];
     int bytes_recv = recv(origin_sock, recv_buffer, PC_BUFFER_SIZE, 0);
     if (bytes_recv < 0) {
@@ -250,6 +254,15 @@ int cl_get(const StringView request, const Url* url, int fd_to_write) {
         }
     }
 
+    // write other headers
+    const char* connection_header = "Connection: close\r\n";
+    cur_bytes_written = write(fd_to_write, connection_header, strlen(connection_header));
+    if (cur_bytes_written != strlen(connection_header)) {
+        shutdown(origin_sock, 2);
+        return -10;
+    }
+    bytes_written += cur_bytes_written;
+
     // indicate to reader we are finished with headers
     cur_bytes_written = write(fd_to_write, "\r\n", 2);
     if (cur_bytes_written != 2) {
@@ -264,9 +277,9 @@ int cl_get(const StringView request, const Url* url, int fd_to_write) {
     int file_bytes_written = 0;
     // write body from first call to recv
     if (header_body_wc == 2) {
-        int cur_file_bytes_written =
-            write(fd_to_write, header_body_pass[1].data, header_body_pass[1].length);
-        if (cur_file_bytes_written != header_body_pass[1].length) {
+        int length_of_body = bytes_recv - (int)header_body_pass[0].length - 4;
+        int cur_file_bytes_written = write(fd_to_write, header_body_pass[1].data, length_of_body);
+        if (cur_file_bytes_written != length_of_body) {
             // did not write all file bytes from first recv
             shutdown(origin_sock, 2);
             return -11;

@@ -51,7 +51,7 @@ int main() {
             close(proxy_fd);
             int rv = pc_handle_connection(&client_connection);
             if (rv != 0) {
-                printf("%d\n", rv);
+                printf("%d %d\n", getpid(), rv);
             }
             // clean up connection
             shutdown(client_connection.fd, 2);

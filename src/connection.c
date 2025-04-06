@@ -22,6 +22,7 @@ int pc_recv(int fd, char* recv_buffer, size_t buffer_size) {
     int num_events = poll(pfd, 1, PC_TIMEOUT_MS);
     if (num_events == 0) {
         // timedout
+        printf("%d pc_recv timedout fd:%d\n", getpid(), fd);
         return 0;
     } else if (pfd[0].revents & POLLIN) {
         int bytes_recv = recv(fd, recv_buffer, buffer_size, 0);
