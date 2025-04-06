@@ -15,11 +15,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+extern int PC_TIMEOUT;
+
 int pc_recv(int fd, char* recv_buffer, size_t buffer_size) {
     static struct pollfd pfd[1];
     pfd[0].events = POLLIN;
     pfd[0].fd = fd;
-    int num_events = poll(pfd, 1, PC_TIMEOUT_MS);
+    int num_events = poll(pfd, 1, PC_TIMEOUT * 1000);
     if (num_events == 0) {
         // timedout
         printf("%d pc_recv timedout fd:%d\n", getpid(), fd);

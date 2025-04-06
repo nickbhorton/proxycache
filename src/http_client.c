@@ -15,7 +15,7 @@
 #include "string_view.h"
 #include "tcp.h"
 
-#define CACHE_LIFETIME 10.0
+extern int PC_TIMEOUT;
 
 int cl_get_atomic(const StringView request, const Url* url, const StringView filename) {
     static char filename_buffer[256];
@@ -79,8 +79,8 @@ create_file:
     }
     time_t t_now = time(NULL);
     double file_age_seconds = difftime(t_now, st.st_mtime);
-    if (CACHE_LIFETIME < file_age_seconds) {
-        printf("%s is old\n", filename_buffer);
+    if (PC_TIMEOUT < file_age_seconds) {
+        printf("but %s is old\n", filename_buffer);
         if (remove(filename_buffer) < 0) {
             perror("remove");
             return -24;

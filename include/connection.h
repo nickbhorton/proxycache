@@ -4,7 +4,6 @@
 #include "address.h"
 #include "url.h"
 
-#define PC_TIMEOUT_MS 5000
 #define PC_BUFFER_SIZE 4096
 
 typedef struct {

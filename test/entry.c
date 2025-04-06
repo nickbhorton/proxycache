@@ -1,5 +1,7 @@
 #include "entry.h"
 
+int PC_TIMEOUT = 10;
+
 int main() {
     CU_initialize_registry();
     add_utils_tests();

@@ -18,6 +18,8 @@
 
 #define DebugPrint(...) fprintf(stdout, __VA_ARGS__);
 
+int PC_TIMEOUT = 10;
+
 int proxy_fd;
 
 void pc_sigint(int signal) {
@@ -26,8 +28,27 @@ void pc_sigint(int signal) {
     fflush(stderr);
     exit(0);
 }
+void usage();
 
-int main() {
+int main(int argc, char** argv) {
+    // setup
+    if (argc < 3) {
+        usage();
+        exit(EXIT_FAILURE);
+    }
+    int port = atoi(argv[1]);
+    if (port <= 0 || port < 1024) {
+        printf("port was wrong\n");
+        usage();
+        exit(EXIT_FAILURE);
+    }
+    PC_TIMEOUT = atoi(argv[2]);
+    if (PC_TIMEOUT <= 0) {
+        printf("timeout was wrong\n");
+        usage();
+        exit(EXIT_FAILURE);
+    }
+
     // Release control of children to prevent zombies
     signal(SIGCHLD, SIG_IGN);
 
@@ -37,7 +58,7 @@ int main() {
     sa.sa_handler = pc_sigint;
     FailIsFatal(sigaction(SIGINT, &sa, NULL));
 
-    FailIsFatal(proxy_fd = tcp_connect(NULL, 8888, true));
+    FailIsFatal(proxy_fd = tcp_connect(NULL, port, true));
     FailIsFatal(listen(proxy_fd, 128));
 
     // handle connections loop
@@ -61,3 +82,5 @@ int main() {
         }
     }
 }
+
+void usage() { printf("./proxy <port> <timeout>\n"); }
