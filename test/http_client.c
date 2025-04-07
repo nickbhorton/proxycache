@@ -84,9 +84,9 @@ void cl_example_request_atomic() {
 
     StringView filename = {.data = "test.txt", .length = strlen("test.txt")};
     remove("test.txt");
-    const char* correct_response =
-        "HTTP/1.1 200 Ok\r\nContent-Type: text/plain\r\nContent-Length: 12\r\n\r\nhello "
-        "world\n";
+    const char* correct_response = "HTTP/1.1 200 Ok\r\nContent-Type: text/plain\r\nContent-Length: "
+                                   "12\r\nConnection: close\r\n\r\nhello "
+                                   "world\n";
 
     int child_passed = 0;
     if (!fork()) {
@@ -160,7 +160,7 @@ void cl_404_from_server() {
         if (fd > 0) {
             char read_buffer[256];
             int bytes_read = read(fd, read_buffer, 256);
-            // printf("child read:\n%.*s", bytes_read, read_buffer);
+            printf("child read:\n%.*s", bytes_read, read_buffer);
             if (bytes_read == strlen(correct_response)) {
                 if (strncmp(read_buffer, correct_response, strlen(correct_response)) == 0) {
                     child_passed = 1;

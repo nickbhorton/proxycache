@@ -1,12 +1,14 @@
 #include "connection.h"
 #include "filename.h"
 #include "http_client.h"
+#include "prefetch.h"
 #include "request.h"
 
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,6 +72,21 @@ int pc_handle_connection(Connection* c) {
         return -4;
     }
 
+    //
+    // prefetch root
+    //
+    if (url.path.length == 0) {
+        // zombies
+        signal(SIGCHLD, SIG_IGN);
+        if (!fork()) {
+            int rv = prefetch(filename, proxy_request, &url, file_size);
+            printf("prefetch done\n");
+            close(requested_file_fd);
+            fflush(stdout);
+            exit(rv);
+        }
+    }
+
     // send file (header is at top of file) to client
     ssize_t bytes_sent = sendfile(c->fd, requested_file_fd, 0, file_size);
     if (bytes_sent != file_size) {
@@ -77,6 +94,7 @@ int pc_handle_connection(Connection* c) {
         return -5;
     }
 
+    close(requested_file_fd);
     // if the content is dynamic remove it from cache after it is sent
     if (url.parameters_anchor.length > 0) {
         remove(filename);

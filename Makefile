@@ -2,7 +2,7 @@ CC=gcc
 
 CFLAGS=-Wall -Werror -Iinclude -g3
 
-all: pc unit_tests
+all: pc unit_tests 
 
 unit_tests: test_entry.o \
 	tcp.o test_tcp.o \
@@ -12,7 +12,7 @@ unit_tests: test_entry.o \
 	http_client.o test_http_client.o
 	$(CC) -o $@ $^ $(CFLAGS) -lcunit
 
-pc: proxy.o connection.o tcp.o string_view.o url.o request.o md5.o http_client.o filename.o
+pc: proxy.o connection.o tcp.o string_view.o url.o request.o md5.o http_client.o filename.o prefetch.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 
@@ -20,6 +20,9 @@ proxy.o: src/proxy.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 tcp.o: src/tcp.c include/tcp.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+prefetch.o: src/prefetch.c include/prefetch.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 md5.o: src/md5.c include/md5.h
