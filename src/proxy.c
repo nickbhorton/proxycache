@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "connection.h"
@@ -51,6 +52,12 @@ int main(int argc, char** argv) {
 
     // Release control of children to prevent zombies
     signal(SIGCHLD, SIG_IGN);
+
+    // making the cache dir defensivly
+    struct stat st = {0};
+    if (stat("./cache", &st) == -1) {
+        mkdir("./cache", 0700);
+    }
 
     // handle SIGINT
     struct sigaction sa;
